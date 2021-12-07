@@ -1,0 +1,5 @@
+tensorflow==2.3
+matplotlib
+pillow
+opencv-python
+tf_slim==1.1.0
