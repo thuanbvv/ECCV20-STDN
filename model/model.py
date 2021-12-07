@@ -15,8 +15,11 @@
 # ==============================================================================
 from __future__ import absolute_import, division, print_function, unicode_literals
 import tensorflow as tf
+from tf_slim import add_arg_scope
+
 from model.utils import Conv, Upsample, Downsample
-  
+
+@add_arg_scope
 def Gen(x, training_nn, scope):
   nlayers = [16, 64, 64, 96, ]
 
@@ -42,15 +45,15 @@ def Gen(x, training_nn, scope):
   n2 = tf.nn.tanh(Conv(Conv(u2, nlayers[0], scope+'/n2', training_nn), 3, scope+'/nn2', training_nn, act=False, norm=False))
   n3 = tf.nn.tanh(Conv(Conv(u3, nlayers[0], scope+'/n3', training_nn), 3, scope+'/nn3', training_nn, act=False, norm=False))
 
-  s = tf.reduce_mean(n1[:,:,:,3:6], axis=[1,2], keepdims=True)
-  b = tf.reduce_mean(n1[:,:,:,:3], axis=[1,2], keepdims=True)
-  C = tf.nn.avg_pool(n2, [1, 2, 2, 1], [1, 2, 2, 1], padding='SAME')
+  s = tf.reduce_mean(input_tensor=n1[:,:,:,3:6], axis=[1,2], keepdims=True)
+  b = tf.reduce_mean(input_tensor=n1[:,:,:,:3], axis=[1,2], keepdims=True)
+  C = tf.nn.avg_pool2d(input=n2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
   T = n3
 
   # ESR
-  map1 = tf.image.resize_images(x1,[32,32])
-  map2 = tf.image.resize_images(x2,[32,32])
-  map3 = tf.image.resize_images(x3,[32,32])
+  map1 = tf.image.resize(x1,[32,32])
+  map2 = tf.image.resize(x2,[32,32])
+  map3 = tf.image.resize(x3,[32,32])
   maps = tf.concat([map1, map2, map3],3)
   x4 = Conv(maps, nlayers[2], scope+'/conv10', training_nn, apply_dropout=True)
   x4 = Conv(x4, nlayers[1], scope+'/conv11', training_nn, apply_dropout=True)
@@ -101,7 +104,7 @@ def get_train_op(sum_loss, global_step, config, scope_name):
   decay_steps = config.NUM_EPOCHS_PER_DECAY * config.STEPS_PER_EPOCH
 
   # Decay the learning rate exponentially based on the number of steps.
-  lr = tf.train.exponential_decay(config.LEARNING_RATE,
+  lr = tf.compat.v1.train.exponential_decay(config.LEARNING_RATE,
                                   global_step,
                                   decay_steps,
                                   config.LEARNING_RATE_DECAY_FACTOR,
@@ -112,15 +115,15 @@ def get_train_op(sum_loss, global_step, config, scope_name):
   loss_averages_op = loss_averages.apply([sum_loss])
   # Compute gradients.
   with tf.control_dependencies([loss_averages_op]):
-    opt = tf.train.AdamOptimizer(lr)
-    grads = opt.compute_gradients(sum_loss, var_list=tf.trainable_variables(scope=scope_name))
+    opt = tf.compat.v1.train.AdamOptimizer(lr)
+    grads = opt.compute_gradients(sum_loss, var_list=tf.compat.v1.trainable_variables(scope=scope_name))
   # Apply gradients.
   apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
 
   # Track the moving averages of all trainable variables.
-  with tf.name_scope('TRAIN-'+scope_name) as scope:
+  with tf.compat.v1.name_scope('TRAIN-'+scope_name) as scope:
     variable_averages = tf.train.ExponentialMovingAverage(config.MOVING_AVERAGE_DECAY, global_step)
-    variables_averages_op = variable_averages.apply(tf.trainable_variables(scope=scope_name))
+    variables_averages_op = variable_averages.apply(tf.compat.v1.trainable_variables(scope=scope_name))
 
   with tf.control_dependencies([apply_gradient_op, variables_averages_op]):
     train_op = tf.no_op(name='train-'+scope_name)

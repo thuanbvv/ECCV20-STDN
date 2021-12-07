@@ -1,3 +1,4 @@
+
 # Copyright 2020
 # 
 # Yaojie Liu, Joel Stehouwer, Xiaoming Liu, Michigan State University
@@ -16,33 +17,38 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import tensorflow as tf
-import time
-from model.dataset import Dataset
+
 from model.config import Config
+from model.dataset import Dataset
 from model.model import Gen
 
-def _step(config, data_batch, training_nn):
-  global_step = tf.train.get_or_create_global_step()
+tf.compat.v1.disable_eager_execution()
+
+
+
+def _step(config: object, data_batch: object, training_nn: object) -> object:
+  global_step = tf.compat.v1.train.get_or_create_global_step()
   bsize = config.BATCH_SIZE
   imsize = config.IMAGE_SIZE
 
   # Get images and labels for CNN.
   img, im_name = data_batch.nextit
+  print(f"img: {img}, im_name: {im_name}")
   img = tf.reshape(img, [bsize, imsize, imsize, 3])
 
   # Forward the Generator
   M, s, b, C, T = Gen(img, training_nn=training_nn, scope='STDN')
-  M = tf.reduce_mean(M, axis=[1,2,3])
-  s = tf.reduce_mean(s, axis=[1,2,3])
-  b = tf.reduce_mean(b, axis=[1,2,3])
-  C = tf.reduce_mean(C, axis=[1,2,3])
-  T = tf.reduce_mean(T, axis=[1,2,3])
+  M = tf.reduce_mean(input_tensor=M, axis=[1,2,3])
+  s = tf.reduce_mean(input_tensor=s, axis=[1,2,3])
+  b = tf.reduce_mean(input_tensor=b, axis=[1,2,3])
+  C = tf.reduce_mean(input_tensor=C, axis=[1,2,3])
+  T = tf.reduce_mean(input_tensor=T, axis=[1,2,3])
   
   return M, s, b, C, T, im_name
 
 def main(argv=None): 
   # Configurations
-  config = Config(gpu='1',
+  config = Config(gpu='0',
                   root_dir='./data/test/',
                   root_dir_val=None,
                   mode='testing')
@@ -55,8 +61,8 @@ def main(argv=None):
   _M, _s, _b, _C, _T, _imname = _step(config, dataset_test, False)
 
   # Add ops to save and restore all the variables.
-  saver = tf.train.Saver(max_to_keep=50,)
-  with tf.Session(config=config.GPU_CONFIG) as sess:
+  saver = tf.compat.v1.train.Saver( max_to_keep=50)
+  with tf.compat.v1.Session(config=config.GPU_CONFIG) as sess:
     # Restore the model
     ckpt = tf.train.get_checkpoint_state(config.LOG_DIR)
     if ckpt and ckpt.model_checkpoint_path:
@@ -66,7 +72,7 @@ def main(argv=None):
       print('Restore from Epoch '+str(last_epoch))
       print('**********************************************************')
     else:
-      init = tf.initializers.global_variables()
+      init = tf.compat.v1.initializers.global_variables()
       last_epoch = 0
       sess.run(init)
       print('**********************************************************')
@@ -80,6 +86,7 @@ def main(argv=None):
         # save the score
         for i in range(config.BATCH_SIZE):
             _name = imname[i].decode('UTF-8')
+            print(f"_name: {_name}")
             _line = _name + ',' + str("{0:.3f}".format(M[i])) + ','\
                                 + str("{0:.3f}".format(s[i])) + ','\
                                 + str("{0:.3f}".format(b[i])) + ','\
@@ -90,4 +97,4 @@ def main(argv=None):
     print("\n")
 
 if __name__ == '__main__':
-  tf.app.run()
+  tf.compat.v1.app.run()

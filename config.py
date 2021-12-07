@@ -51,8 +51,8 @@ class Config(object):
         """Set values of computed attributes."""
         self.MODE = mode
         self.GPU_USAGE = gpu
-        self.GPU_OPTIONS = tf.GPUOptions(per_process_gpu_memory_fraction=1, visible_device_list =self.GPU_USAGE, allow_growth = True)
-        self.GPU_CONFIG = tf.ConfigProto(log_device_placement=self.LOG_DEVICE_PLACEMENT, gpu_options = self.GPU_OPTIONS)
+        self.GPU_OPTIONS = tf.compat.v1.GPUOptions(per_process_gpu_memory_fraction=1, visible_device_list =self.GPU_USAGE, allow_growth = True)
+        self.GPU_CONFIG = tf.compat.v1.ConfigProto(log_device_placement=self.LOG_DEVICE_PLACEMENT, gpu_options = self.GPU_OPTIONS)
         self.LI_DATA_DIR = [root_dir+'live/*']
         self.SP_DATA_DIR = [root_dir+'spoof/*']
         if root_dir_val:

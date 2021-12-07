@@ -1,3 +1,4 @@
+
 # Copyright 2020
 # 
 # Yaojie Liu, Joel Stehouwer, Xiaoming Liu, Michigan State University
@@ -14,8 +15,18 @@
 # Governmental purposes not withstanding any copyright annotation thereon. 
 # ==============================================================================
 import tensorflow as tf
-import tensorflow.contrib.layers as layers
-arg_scope = tf.contrib.framework.arg_scope
+import tf_slim as slim
+# import tensorflow.compat.v1.layers as layers
+import tf_slim.layers as layers
+# import tensorflow_addons as tfa
+# from tensorflow_addons import layers
+
+# import tensorflow.keras.layers as layers
+# from tensorflow_addons import layers
+#arg_scope = slim.arg_scope
+# from tf_slim.ops.arg_scope import arg_scope
+# from tf_slim import add_arg_scope 
+
 
 def plotResults(result_list):
     column = []
@@ -28,7 +39,7 @@ def plotResults(result_list):
         else:
             r, g, b = tf.split(fig, 3, 3)
             fig = tf.concat([b,g,r], 3)
-        fig = tf.image.resize_images(fig, [256, 256])
+        fig = tf.image.resize(fig, [256, 256])
         row = tf.split(fig, shape[0])
         row = tf.concat(row, axis=2)
         column.append(row[0,:,:,:])
@@ -64,22 +75,24 @@ class Error:
     def reset(self):
         self.losses = {}
 
+@slim.add_arg_scope
 def PRelu(x, scope):
-    with tf.variable_scope(scope+'/PRelu', reuse=tf.AUTO_REUSE):  
-        alphas = tf.get_variable('alpha', x.get_shape()[-1],
-                           initializer=tf.constant_initializer(0.0),
+    with tf.compat.v1.variable_scope(scope+'/PRelu', reuse=tf.compat.v1.AUTO_REUSE):  
+        alphas = tf.compat.v1.get_variable('alpha', x.get_shape()[-1],
+                           initializer=tf.compat.v1.constant_initializer(0.0),
                            dtype=tf.float32)
         x = tf.nn.relu(x) + alphas * (x - abs(x)) * 0.5
     return x
 
+@slim.add_arg_scope
 def FC(x, num, scope, training_nn, act=True, norm=True, apply_dropout=False):  
-    with arg_scope( [layers.fully_connected],
-                    weights_initializer = tf.random_normal_initializer(stddev=0.02),
-                    biases_initializer  = tf.constant_initializer(0.0),
+    with slim.arg_scope( [layers.fully_connected],
+                    weights_initializer = tf.compat.v1.random_normal_initializer(stddev=0.02),
+                    biases_initializer  = tf.compat.v1.constant_initializer(0.0),
                     activation_fn=None, 
                     normalizer_fn=None,
                     trainable = training_nn,
-                    reuse=tf.AUTO_REUSE):   
+                    reuse=tf.compat.v1.AUTO_REUSE):   
         x = layers.fully_connected(x, num_outputs=num, scope=scope)
         if norm:
             x = layers.batch_norm(x, decay=0.99, 
@@ -87,7 +100,7 @@ def FC(x, num, scope, training_nn, act=True, norm=True, apply_dropout=False):
                                      epsilon=1e-5, 
                                      is_training=training_nn, 
                                      updates_collections=None, 
-                                     reuse=tf.AUTO_REUSE,
+                                     reuse=tf.compat.v1.AUTO_REUSE,
                                      scope=scope+'/BN')
         if act:
             x = PRelu(x, scope)
@@ -95,16 +108,17 @@ def FC(x, num, scope, training_nn, act=True, norm=True, apply_dropout=False):
             x = layers.dropout(x, keep_prob=0.7, is_training=training_nn, scope=scope+'/dropout')
     return x
 
+@slim.add_arg_scope
 def Conv(x, num, scope, training_nn, act=True, norm=True, apply_dropout=False, padding='SAME', stride=1):  
-    with arg_scope( [layers.conv2d],
+    with slim.arg_scope( [layers.conv2d],
                     kernel_size = 3,
-                    weights_initializer = tf.random_normal_initializer(stddev=0.02),
-                    biases_initializer  = tf.constant_initializer(0.0),
+                    weights_initializer = tf.compat.v1.random_normal_initializer(stddev=0.02),
+                    biases_initializer  = tf.compat.v1.constant_initializer(0.0),
                     activation_fn=None, 
                     normalizer_fn=None,
                     trainable = training_nn,
                     padding=padding,
-                    reuse=tf.AUTO_REUSE,
+                    reuse=tf.compat.v1.AUTO_REUSE,
                     stride=stride):   
         x = layers.conv2d(x, num_outputs=num, scope=scope)
         if norm:
@@ -113,7 +127,7 @@ def Conv(x, num, scope, training_nn, act=True, norm=True, apply_dropout=False, p
                                      epsilon=1e-5, 
                                      is_training=training_nn, 
                                      updates_collections=None, 
-                                     reuse=tf.AUTO_REUSE,
+                                     reuse=tf.compat.v1.AUTO_REUSE,
                                      scope=scope+'/BN')
         if act:
             x = PRelu(x, scope)
@@ -121,16 +135,17 @@ def Conv(x, num, scope, training_nn, act=True, norm=True, apply_dropout=False, p
             x = layers.dropout(x, keep_prob=0.7, is_training=training_nn, scope=scope+'/dropout')
     return x
 
+@slim.add_arg_scope
 def Downsample(x, num, scope, training_nn, padding='SAME', act=True, norm=True, apply_dropout=False):
-    with arg_scope( [layers.conv2d],
+    with slim.arg_scope( [layers.conv2d],
                     kernel_size = 3,
-                    weights_initializer = tf.random_normal_initializer(stddev=0.02),
-                    biases_initializer  = tf.constant_initializer(0.0),
+                    weights_initializer = tf.compat.v1.random_normal_initializer(stddev=0.02),
+                    biases_initializer  = tf.compat.v1.constant_initializer(0.0),
                     activation_fn=None, 
                     normalizer_fn=None,
                     trainable = training_nn,
                     padding=padding,
-                    reuse=tf.AUTO_REUSE,
+                    reuse=tf.compat.v1.AUTO_REUSE,
                     stride=2):   
         x = layers.conv2d(x, num_outputs=num, scope=scope)
         if norm:
@@ -139,7 +154,7 @@ def Downsample(x, num, scope, training_nn, padding='SAME', act=True, norm=True, 
                                      epsilon=1e-5, 
                                      is_training=training_nn, 
                                      updates_collections=None, 
-                                     reuse=tf.AUTO_REUSE,
+                                     reuse=tf.compat.v1.AUTO_REUSE,
                                      scope=scope+'/BN')
         if act:
             x = PRelu(x, scope)
@@ -147,16 +162,17 @@ def Downsample(x, num, scope, training_nn, padding='SAME', act=True, norm=True, 
             x = layers.dropout(x, keep_prob=0.7, is_training=training_nn, scope=scope+'/dropout')
     return x
 
+@slim.add_arg_scope
 def Upsample(x, num, scope, training_nn, padding='SAME', act=True, norm=True):  
-    with arg_scope( [layers.conv2d_transpose],
+    with slim.arg_scope( [layers.conv2d_transpose],
                     kernel_size = 3,
-                    weights_initializer = tf.random_normal_initializer(stddev=0.02),
-                    biases_initializer  = tf.constant_initializer(0.0),
+                    weights_initializer = tf.compat.v1.random_normal_initializer(stddev=0.02),
+                    biases_initializer  = tf.compat.v1.constant_initializer(0.0),
                     activation_fn=None, 
                     normalizer_fn=None,
                     trainable = training_nn,
                     padding=padding,
-                    reuse=tf.AUTO_REUSE,
+                    reuse=tf.compat.v1.AUTO_REUSE,
                     stride=2):   
         x = layers.conv2d_transpose(x, num_outputs=num, scope=scope)
         if norm:
@@ -165,7 +181,7 @@ def Upsample(x, num, scope, training_nn, padding='SAME', act=True, norm=True):
                                      epsilon=1e-5, 
                                      is_training=training_nn, 
                                      updates_collections=None, 
-                                     reuse=tf.AUTO_REUSE,
+                                     reuse=tf.compat.v1.AUTO_REUSE,
                                      scope=scope+'/BN')
         if act:
             x = PRelu(x, scope)

@@ -64,7 +64,7 @@ def warping(x, offsets, imsize):
 
     # solve fractional coordinates via bilinear interpolation
     s_coords_lu = tf.floor(s_coords)
-    s_coords_rb = tf.ceil(s_coords)
+    s_coords_rb = tf.math.ceil(s_coords)
     s_coords_lb = tf.stack([s_coords_lu[..., 0], s_coords_rb[..., 1]], axis=-1)
     s_coords_ru = tf.stack([s_coords_rb[..., 0], s_coords_lu[..., 1]], axis=-1)
     _x_lu = _gather_pixel(x, s_coords_lu)

@@ -15,49 +15,53 @@
 # ==============================================================================
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import tensorflow as tf
-import numpy as np
-import cv2
 import time
+
+import cv2
+import tensorflow as tf
+
+from model.config import Config
 from model.dataset import Dataset
-from model.config  import Config
-from model.model   import Gen, Disc, Disc_s, get_train_op
-from model.utils   import Error, plotResults
-from model.loss    import l1_loss, l2_loss
-from model.warp    import warping
+from model.loss import l1_loss, l2_loss
+from model.model import Gen, Disc_s, get_train_op
+from model.utils import Error, plotResults
+from model.warp import warping
+tf.compat.v1.disable_eager_execution()
+tf.compat.v1.disable_v2_behavior()
+
 
 def _step(config, data_batch, training_nn):
-  global_step = tf.train.get_or_create_global_step()
+  global_step = tf.compat.v1.train.get_or_create_global_step()
   bsize = config.BATCH_SIZE
   imsize = config.IMAGE_SIZE
   im2size = 160
   im3size = 40
   # Get images and labels.
   img, reg = data_batch.nextit
-  img  = tf .transpose(img, perm=[1, 0, 2, 3, 4])
+  img  = tf .transpose(a=img, perm=[1, 0, 2, 3, 4])
   img  = tf.reshape(img, [bsize*2, imsize, imsize, 3])
-  img2 = tf.image.resize_images(img, [im2size, im2size])
-  img3 = tf.image.resize_images(img, [im3size, im3size])
+  img2 = tf.image.resize(img, [im2size, im2size])
+  img3 = tf.image.resize(img, [im3size, im3size])
   reg  = tf.reshape(reg, [bsize, imsize, imsize, 3])
 
   ################################### STEP 1 ##################################################################
   M, s, b, C, T = Gen(img, training_nn=training_nn, scope='STDN')
 
   ################################### STEP 2 ##################################################################
-  recon1 = (1-s)*img - b - tf.image.resize_images(C, [imsize, imsize]) - T
+  recon1 = (1-s)*img - b - tf.image.resize(C, [imsize, imsize]) - T
   trace = img - recon1
   trace_warp = warping(trace[bsize:,...], reg, imsize)
   synth1 = img[:bsize,...]+ trace_warp
   img_d1 = tf.concat([img, recon1[bsize:,...], synth1], 0)
   d1l, d1s = Disc_s(img_d1, training_nn=training_nn, scope='Disc/d1')
 
-  recon2 = tf.image.resize_images(recon1, [im2size, im2size])
-  synth2 = tf.image.resize_images(synth1, [im2size, im2size])
+  recon2 = tf.image.resize(recon1, [im2size, im2size])
+  synth2 = tf.image.resize(synth1, [im2size, im2size])
   img_d2 = tf.concat([img2, recon2[bsize:,...], synth2], 0)
   d2l, d2s = Disc_s(img_d2, training_nn=training_nn, scope='Disc/d2')
 
-  recon3 = tf.image.resize_images(recon1, [im3size, im3size])
-  synth3 = tf.image.resize_images(synth1, [im3size, im3size])
+  recon3 = tf.image.resize(recon1, [im3size, im3size])
+  synth3 = tf.image.resize(synth1, [im3size, im3size])
   img_d3 = tf.concat([img3, recon3[bsize:,...], synth3], 0)
   d3l, d3s = Disc_s(img_d3, training_nn=training_nn, scope='Disc/d3')
 
@@ -66,19 +70,19 @@ def _step(config, data_batch, training_nn):
   b_hard = b * tf.random.uniform([bsize*2, 1, 1, 1], minval=0.1, maxval=0.8)
   C_hard = C * tf.random.uniform([bsize*2, 1, 1, 1], minval=0.1, maxval=0.8)
   T_hard = T * tf.random.uniform([bsize*2, 1, 1, 1], minval=0.1, maxval=0.8)
-  recon_hard1 = (1-s_hard)*img - b - tf.image.resize_images(C, [imsize, imsize]) - T
-  recon_hard2 = (1-s)*img - b_hard - tf.image.resize_images(C, [imsize, imsize]) - T
-  recon_hard3 = (1-s)*img - b - tf.image.resize_images(C_hard, [imsize, imsize]) - T
-  recon_hard4 = (1-s)*img - b - tf.image.resize_images(C, [imsize, imsize]) - T_hard
-  recon_hard_s1 = tf.cond(tf.greater(tf.random.uniform([1],0,1)[0],0.5),lambda: recon_hard1, lambda: recon_hard2)
-  recon_hard_s2 = tf.cond(tf.greater(tf.random.uniform([1],0,1)[0],0.5),lambda: recon_hard3, lambda: recon_hard4)
-  recon_hard = tf.cond(tf.greater(tf.random.uniform([1],0,1)[0],0.5),lambda: recon_hard_s1, lambda: recon_hard_s2)
+  recon_hard1 = (1-s_hard)*img - b - tf.image.resize(C, [imsize, imsize]) - T
+  recon_hard2 = (1-s)*img - b_hard - tf.image.resize(C, [imsize, imsize]) - T
+  recon_hard3 = (1-s)*img - b - tf.image.resize(C_hard, [imsize, imsize]) - T
+  recon_hard4 = (1-s)*img - b - tf.image.resize(C, [imsize, imsize]) - T_hard
+  recon_hard_s1 = tf.cond(pred=tf.greater(tf.random.uniform([1],0,1)[0],0.5),true_fn=lambda: recon_hard1, false_fn=lambda: recon_hard2)
+  recon_hard_s2 = tf.cond(pred=tf.greater(tf.random.uniform([1],0,1)[0],0.5),true_fn=lambda: recon_hard3, false_fn=lambda: recon_hard4)
+  recon_hard = tf.cond(pred=tf.greater(tf.random.uniform([1],0,1)[0],0.5),true_fn=lambda: recon_hard_s1, false_fn=lambda: recon_hard_s2)
   img_a1 = tf.stop_gradient(tf.concat([img[:bsize,...], recon_hard[bsize:,...]],axis=0))
   img_a2 = tf.stop_gradient(tf.concat([img[:bsize,...], synth1],axis=0))
   dec = tf.greater(tf.random.uniform([1],0,1)[0],0.5)
-  img_a = tf.cond(dec,lambda: img_a1, lambda: img_a2)
+  img_a = tf.cond(pred=dec,true_fn=lambda: img_a1, false_fn=lambda: img_a2)
   M_a, s_a, b_a, C_a, T_a = Gen(img_a, training_nn=training_nn, scope='STDN')
-  traces_a = s_a*img + b_a + tf.image.resize_images(C_a, [imsize, imsize]) + T_a
+  traces_a = s_a*img + b_a + tf.image.resize(C_a, [imsize, imsize]) + T_a
 
   ################################### Losses ##################################################################
   d1_rl, _, d1_sl, _ = tf.split(d1l, 4)
@@ -108,7 +112,7 @@ def _step(config, data_batch, training_nn):
   pixel_loss = l1_loss(traces_a[:bsize,...], tf.stop_gradient(trace_warp))
   a_loss_1 = esr_loss_a*5 + pixel_loss*0.0 #  #
   a_loss_2 = esr_loss_a*5 + pixel_loss*0.1 #  #
-  a_loss = tf.cond(dec,lambda: a_loss_1, lambda: a_loss_2)
+  a_loss = tf.cond(pred=dec,true_fn=lambda: a_loss_1, false_fn=lambda: a_loss_2)
   
   if training_nn:
     g_op = get_train_op(g_loss+a_loss, global_step, config, "STDN")
@@ -127,7 +131,7 @@ def _step(config, data_batch, training_nn):
 
 def main(argv=None):
   # Configurations
-  config = Config(gpu='1',
+  config = Config(gpu='0',
                   root_dir='./data/train/',
                   root_dir_val='./data/val/',
                   mode='training')
@@ -141,8 +145,8 @@ def main(argv=None):
   losses_val, _, _, fig_val = _step(config, dataset_val,   training_nn=False)
 
   # Add ops to save and restore all the variables.
-  saver = tf.train.Saver(max_to_keep=50,)
-  with tf.Session(config=config.GPU_CONFIG) as sess:
+  saver = tf.compat.v1.train.Saver(max_to_keep=50,)
+  with tf.compat.v1.Session(config=config.GPU_CONFIG) as sess:
     # Restore the model
     ckpt = tf.train.get_checkpoint_state(config.LOG_DIR)
     if ckpt and ckpt.model_checkpoint_path:
@@ -152,7 +156,7 @@ def main(argv=None):
       print('Restore from Epoch '+str(last_epoch))
       print('**********************************************************')
     else:
-      init = tf.initializers.global_variables()
+      init = tf.compat.v1.initializers.global_variables()
       last_epoch = 0
       sess.run(init)
       print('**********************************************************')
@@ -207,4 +211,4 @@ def main(argv=None):
       avg_loss.reset()
 
 if __name__ == '__main__':
-  tf.app.run()
+  tf.compat.v1.app.run()

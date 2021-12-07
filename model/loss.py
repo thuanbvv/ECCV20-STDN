@@ -18,17 +18,17 @@ import tensorflow as tf
 def l1_loss(x, y, mask=None):
     xshape = x.shape
     if mask is not None:
-        loss = tf.math.reduce_mean(tf.reshape(tf.abs(x-y), [xshape[0], -1]), axis=1, keepdims=True)
-        loss = tf.math.reduce_sum(loss * mask) / (tf.reduce_sum(mask) + 1e-8)
+        loss = tf.math.reduce_mean(input_tensor=tf.reshape(tf.abs(x-y), [xshape[0], -1]), axis=1, keepdims=True)
+        loss = tf.math.reduce_sum(input_tensor=loss * mask) / (tf.reduce_sum(input_tensor=mask) + 1e-8)
     else:
-        loss = tf.math.reduce_mean(tf.abs(x-y))
+        loss = tf.math.reduce_mean(input_tensor=tf.abs(x-y))
     return loss
 
 def l2_loss(x, y, mask=None):
     xshape = x.shape
     if mask is not None:
-        loss = tf.math.reduce_mean(tf.reshape(tf.square(x-y), [xshape[0], -1]), axis=1, keepdims=True)
-        loss = tf.math.reduce_sum(loss * mask) / (tf.reduce_sum(mask) + 1e-8)
+        loss = tf.math.reduce_mean(input_tensor=tf.reshape(tf.square(x-y), [xshape[0], -1]), axis=1, keepdims=True)
+        loss = tf.math.reduce_sum(input_tensor=loss * mask) / (tf.reduce_sum(input_tensor=mask) + 1e-8)
     else:
-        loss = tf.math.reduce_mean(tf.square(x-y))
+        loss = tf.math.reduce_mean(input_tensor=tf.square(x-y))
     return loss

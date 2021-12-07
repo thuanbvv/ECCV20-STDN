@@ -29,7 +29,11 @@ class Dataset():
             self.input_tensors = self.inputs_for_training(train_mode)
         elif self.config.MODE == 'testing':
             self.input_tensors, self.name_list = self.inputs_for_testing()
-        self.nextit = self.input_tensors.make_one_shot_iterator().get_next()
+            print(f"input_tensors: {self.input_tensors}")
+        self.nextit = tf.compat.v1.data.make_one_shot_iterator(self.input_tensors).get_next()
+        # self.data = iter(self.input_tensors)
+        # self.nextit = next(self.data)
+        # self.nextit = tf.compat.v1.data.Dataset.from_tensor_slices(self.input_tensors)
 
     def inputs_for_training(self, train_mode):
         if train_mode == 'train':
@@ -61,7 +65,7 @@ class Dataset():
             sp_data_samples = sp_data_samples[:li_len]
         shuffle_buffer_size = len(li_data_samples)
         
-        dataset = tf.data.Dataset.from_tensor_slices((li_data_samples, sp_data_samples))
+        dataset = tf.compat.v1.data.Dataset.from_tensor_slices((li_data_samples, sp_data_samples))
         dataset = dataset.shuffle(shuffle_buffer_size).repeat(-1)
         if train_mode == 'train':
             dataset = dataset.map(map_func=self.parse_fn, num_parallel_calls=autotune)
@@ -69,6 +73,7 @@ class Dataset():
         else:
             dataset = dataset.map(map_func=self.parse_fn_val, num_parallel_calls=autotune)
             dataset = dataset.batch(batch_size=self.config.BATCH_SIZE).prefetch(buffer_size=autotune)
+        print(f"dataset: {dataset}")
         return dataset
 
     def inputs_for_testing(self):
@@ -85,9 +90,12 @@ class Dataset():
                 new_list += meta
             return new_list
         data_samples = list_extend(data_samples)  
-        dataset = tf.data.Dataset.from_tensor_slices((data_samples))
+        dataset = tf.compat.v1.data.Dataset.from_tensor_slices((data_samples))
+        print(f"dataset1: {dataset}")
         dataset = dataset.map(map_func=self.parse_fn_test, num_parallel_calls=autotune)
+        print(f"dataset2: {dataset}")
         dataset = dataset.batch(batch_size=self.config.BATCH_SIZE).prefetch(buffer_size=autotune)
+        print(f"dataset: {dataset}, data_samples: {data_samples}")
         return dataset, data_samples
 
     def parse_fn(self, file1, file2):
@@ -143,7 +151,8 @@ class Dataset():
 
             return np.array(image_li,np.float32)/255, np.array(image_sp,np.float32)/255, reg_map_sp.astype(np.float32)
 
-        image_li, image_sp, reg_map_sp = tf.py_func(_parse_function, [file1, file2], [tf.float32, tf.float32, tf.float32])
+        image_li, image_sp, reg_map_sp = tf.compat.v1.py_func(_parse_function, [file1, file2], [tf.float32, tf.float32, tf.float32])
+        # image_li, image_sp, reg_map_sp = tf.py_function(_parse_function, [file1, file2], [tf.float32, tf.float32, tf.float32])
         image_li   = tf.ensure_shape(image_li,   [imsize, imsize, 3])
         image_sp   = tf.ensure_shape(image_sp,   [imsize, imsize, 3])
         reg_map_sp = tf.ensure_shape(reg_map_sp, [imsize, imsize, 3])
@@ -207,7 +216,8 @@ class Dataset():
 
             return np.array(image_li,np.float32)/255, np.array(image_sp,np.float32)/255, reg_map_sp.astype(np.float32)
 
-        image_li, image_sp, reg_map_sp = tf.py_func(_parse_function, [file1, file2], [tf.float32, tf.float32, tf.float32])
+        #image_li, image_sp, reg_map_sp = tf.compat.v1.py_func(_parse_function, [file1, file2], [tf.float32, tf.float32, tf.float32])
+        image_li, image_sp, reg_map_sp =tf.compat.v1.py_func(_parse_function, [file1, file2], [tf.float32, tf.float32, tf.float32])
         image_li   = tf.ensure_shape(image_li,   [imsize, imsize, 3])
         image_sp   = tf.ensure_shape(image_sp,   [imsize, imsize, 3])
         reg_map_sp = tf.ensure_shape(reg_map_sp, [imsize, imsize, 3])
@@ -227,6 +237,6 @@ class Dataset():
             image = image.resize((imsize, imsize))
             return np.array(image,np.float32)/255, im_name
 
-        image, im_name = tf.py_func(_parse_function, [file], [tf.float32, tf.string])
+        image, im_name = tf.compat.v1.py_func(_parse_function, [file], [tf.float32, tf.string])
         image   = tf.ensure_shape(image, [config.IMAGE_SIZE, config.IMAGE_SIZE, 3])
         return image, im_name
